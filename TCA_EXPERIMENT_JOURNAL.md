@@ -3,8 +3,8 @@
 ## Course Setup
 - Date: 2026-10-22
 - Project: `tca-elements`
-- Stage: 1
-- Exercise: A (Counter)
+- Stage: 2
+- Exercise: Async effect + custom dependency key
 
 ## Environment Snapshot
 - Xcode: 27.1 (Build 27A9269)
@@ -95,3 +95,51 @@
 ### Takeaway
 - Dependencies in TCA are read where behavior needs them (the reducer), not from the view.
 - Previews can override dependencies to produce stable, repeatable output while still exercising real reducer logic.
+
+## Stage 2 - Async effect + custom dependency key
+- Extended `CounterFeature` state for async loading flow:
+  - `tasks: [TaskItem]`
+  - `tasksPhase: .idle | .loading | .loaded | .failed(String)`
+- Added async actions in `CounterFeature.Action`:
+  - `loadTasksButtonTapped`
+  - `tasksResponse(Result<[TaskItem], TaskLoadError>)`
+- Implemented effect pipeline in reducer:
+  - `.loadTasksButtonTapped` sets `tasksPhase = .loading`
+  - runs `taskClient.loadTasks()` via `.run`
+  - maps success/failure into `.tasksResponse`
+- Introduced custom dependency:
+  - reducer usage: `@Dependency(\.taskClient) var taskClient`
+  - exposure in `tca-elements/TaskClient.swift` via:
+    - `extension DependencyValues { var taskClient: TaskClient { get/set } }`
+    - `extension TaskClient: DependencyKey { liveValue/testValue/previewValue }`
+- Wired root store dependency in `tca-elements/tca_elementsApp.swift`:
+  - `withDependencies { $0.taskClient = .fixture }`
+- Updated `tca-elements/ContentView.swift` to render Stage 2 async states:
+  - idle/loading/loaded/failed UI
+  - load button disabled during `.loading`
+
+### Stage 2 Verification Checklist
+- [ ] Tapping "Load tasks" transitions from `.idle` to `.loading` and then `.loaded`.
+- [ ] Loaded tasks render from fixture data.
+- [ ] Counter actions (`+1`, `-1`, `Reset`) still work unchanged.
+- [ ] `captureNowButtonTapped` still updates `lastUpdated`.
+- [ ] Failure branch renders a readable `.failed(message)` state if `taskClient` throws.
+
+### Takeaway
+- A custom dependency in TCA is exposed in two places: a `DependencyValues` computed property (for key-path access) and `DependencyKey` conformance (for default values).
+- Async side effects stay in the reducer, while the view remains a projection of state plus action sends.
+
+## Stage 2 - Exercise B (Failure and retry)
+- Switched app wiring to a deterministic fail-first client:
+  - `withDependencies { $0.taskClient = .failFirstThenFixture }` in `tca-elements/tca_elementsApp.swift`.
+- Added `TaskClient.failFirstThenFixture` in `tca-elements/TaskClient.swift`:
+  - first load throws a simulated error
+  - subsequent retry returns fixture data
+- Kept reducer flow intentional in `tca-elements/CounterFeature.swift`:
+  - `loadTasksButtonTapped` sets `.loading`
+  - `tasksResponse(.failure)` stores a user-facing message in `.failed(String)`
+  - retry reuses the same action/effect path, no extra booleans
+- Clarified failed-state UX in `tca-elements/ContentView.swift` with explicit retry guidance.
+
+### Takeaway
+- Failure and retry work best when modeled as a single state machine (`idle/loading/loaded/failed`) rather than separate, potentially contradictory booleans.

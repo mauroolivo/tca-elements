@@ -15,6 +15,13 @@ struct ContentView: View {
         return lastUpdated.formatted(date: .abbreviated, time: .standard)
     }
 
+    private var isLoadingTasks: Bool {
+        if case .loading = store.tasksPhase {
+            return true
+        }
+        return false
+    }
+
     var body: some View {
         content
     }
@@ -51,8 +58,38 @@ struct ContentView: View {
                         store.send(.captureNowButtonTapped)
                     }
                 }
+
+                Section("Stage 2: Async tasks") {
+                    Button("Load tasks") {
+                        store.send(.loadTasksButtonTapped)
+                    }
+                    .disabled(isLoadingTasks)
+
+                    switch store.tasksPhase {
+                    case .idle:
+                        Text("Idle. Tap load to run TaskClient.")
+                            .foregroundStyle(.secondary)
+
+                    case .loading:
+                        ProgressView("Loading tasks...")
+
+                    case .loaded:
+                        ForEach(store.tasks) { task in
+                            Label(task.title, systemImage: task.isDone ? "checkmark.circle.fill" : "circle")
+                        }
+
+                    case let .failed(message):
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Failed: \(message)")
+                                .foregroundStyle(.red)
+                            Text("Tap \"Load tasks\" to retry.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }
-            .navigationTitle("Stage 1C Dependency")
+            .navigationTitle("Stage 2 Effects")
         }
     }
 }
