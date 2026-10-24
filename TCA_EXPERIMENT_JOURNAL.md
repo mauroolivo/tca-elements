@@ -48,6 +48,9 @@
 - Before adding feature reducers, confirm stable ownership location: `App` entry point, not recreated inside transient child views.
 
 ## Stage 1 - Exercise A (Counter)
+### Goal
+- Build the smallest complete TCA loop (state, action, reducer, store, view) and make each user intent traceable to one explicit mutation.
+
 - Added first reducer feature in `tca-elements/CounterFeature.swift` using modern APIs:
   - `@Reducer`
   - `@ObservableState`
@@ -64,11 +67,20 @@
 - Initial reducer body used `var body: some ReducerOf<Self>`, which triggered a macro circular-reference compiler error in this project configuration.
 - Repaired by changing to `var body: some Reducer<State, Action>`, after which build succeeded.
 
+### Specific considerations
+- Action names were intentionally intent-based (`incrementButtonTapped`) instead of imperative method names to keep event flow explicit.
+- Root store ownership at `App` level prevents accidental state resets during SwiftUI view identity churn.
+- The reducer stays synchronous and side-effect free in this exercise to isolate the core mental model before introducing effects.
+
 ### Takeaway
 - In observation-era TCA, action names express user intent, reducers mutate state synchronously, and views simply send actions.
 - Store lifetime matters: placing the root store in `App` gives stable identity across SwiftUI view refreshes.
+- The main win in this stage is not abstraction; it is inspectability: every state transition has a named cause.
 
 ## Stage 1 - Exercise B (State boundaries)
+### Goal
+- Practice state ownership discipline by separating canonical domain state, derived values, and purely presentational view state.
+
 - Added a computed derived value in reducer state:
   - `displayCount` is computed from `count` and has no independent storage.
 - Added an intentionally duplicated stored value:
@@ -79,10 +91,20 @@
 - Added a transient UI concern as local SwiftUI state in `ContentView`:
   - `@State private var showRawCount` controls visibility only and does not belong in domain state.
 
+### Specific considerations
+- The inconsistency demo is intentional technical debt: it demonstrates why denormalized state requires strict synchronization rules.
+- Keeping `showRawCount` in view-local state avoids polluting domain state with ephemeral presentation concerns.
+- This exercise is a concrete guardrail against over-centralizing every boolean in reducer state.
+
 ### Takeaway
 - Keep canonical domain data in reducer state (`count`), compute derived display values when possible (`displayCount`), and avoid duplicate stored derivations (`cachedDisplayCount`) unless there is a strong, explicit reason.
 - Purely presentational toggles with no domain meaning can remain local to the view.
+- A useful heuristic emerges: if a value can be recomputed from canonical state, persistence of that value needs explicit justification.
+
 ## Stage 1 - Exercise C (Dependency preview)
+### Goal
+- Introduce dependency injection in the reducer with the smallest possible surface area and prove deterministic behavior in previews.
+
 - Re-centered the active screen from the Stage 1B inconsistency demo to a minimal dependency-focused variant.
 - Added a reducer dependency:
   - `@Dependency(\.date.now) var now`
@@ -92,11 +114,20 @@
 - Updated preview store dependencies for determinism:
   - `withDependencies { $0.date.now = Date(timeIntervalSince1970: 1_700_000_000) }`
 
+### Specific considerations
+- The dependency was introduced where behavior lives (reducer), not where rendering happens (view), preserving directional architecture.
+- Overriding `date.now` in preview demonstrates that deterministic dependencies are not only for tests; they also improve UI verification.
+- We intentionally avoided premature protocol layering and kept the dependency boundary concrete and minimal.
+
 ### Takeaway
 - Dependencies in TCA are read where behavior needs them (the reducer), not from the view.
 - Previews can override dependencies to produce stable, repeatable output while still exercising real reducer logic.
+- This stage establishes the dependency pattern that later scales to async clients, clocks, persistence, and deterministic tests.
 
 ## Stage 2 - Async effect + custom dependency key
+### Goal
+- Move asynchronous task loading out of view callbacks and into reducer-managed effects, while introducing a first custom dependency key in a version-accurate TCA style.
+
 - Extended `CounterFeature` state for async loading flow:
   - `tasks: [TaskItem]`
   - `tasksPhase: .idle | .loading | .loaded | .failed(String)`
@@ -118,6 +149,11 @@
   - idle/loading/loaded/failed UI
   - load button disabled during `.loading`
 
+### Specific considerations
+- We intentionally modeled async UI as a single state machine (`tasksPhase`) to avoid contradictory combinations such as "has error" + "is loading".
+- We kept fixture data deterministic so behavior can be reasoned about and later tested without relying on network timing.
+- Dependency registration was done at app root to make override points explicit and easy to audit.
+
 ### Stage 2 Verification Checklist
 - [ ] Tapping "Load tasks" transitions from `.idle` to `.loading` and then `.loaded`.
 - [ ] Loaded tasks render from fixture data.
@@ -128,8 +164,12 @@
 ### Takeaway
 - A custom dependency in TCA is exposed in two places: a `DependencyValues` computed property (for key-path access) and `DependencyKey` conformance (for default values).
 - Async side effects stay in the reducer, while the view remains a projection of state plus action sends.
+- This separation is the first practical shift from callback-driven UI to an effect-driven state machine, which scales better as feature complexity increases.
 
 ## Stage 2 - Exercise B (Failure and retry)
+### Goal
+- Validate that failure is a first-class state transition, not an exceptional path hidden in logs, and ensure retries reuse the same reducer pipeline.
+
 - Switched app wiring to a deterministic fail-first client:
   - `withDependencies { $0.taskClient = .failFirstThenFixture }` in `tca-elements/tca_elementsApp.swift`.
 - Added `TaskClient.failFirstThenFixture` in `tca-elements/TaskClient.swift`:
@@ -141,10 +181,18 @@
   - retry reuses the same action/effect path, no extra booleans
 - Clarified failed-state UX in `tca-elements/ContentView.swift` with explicit retry guidance.
 
+### Specific considerations
+- Reusing `loadTasksButtonTapped` for first attempt and retry keeps behavior centralized and avoids drift between similar code paths.
+- Error handling remains data-oriented (`.failed(String)`) so UI can render failure deterministically and recover with one next intent.
+
 ### Takeaway
 - Failure and retry work best when modeled as a single state machine (`idle/loading/loaded/failed`) rather than separate, potentially contradictory booleans.
+- Deterministic fail-first dependencies are useful pedagogically: they make the failure path visible on demand and remove timing ambiguity.
 
 ## Stage 2 - Exercise C (Cancellation and races)
+### Goal
+- Make effect lifetime explicit and deterministic under rapid user input, including cancellation and stale response protection.
+
 - Extended task-loading flow to support explicit cancellation:
   - Added `cancelLoadTasksButtonTapped` action.
   - Added `.cancellable(id:cancelInFlight:)` to the load effect.
@@ -157,6 +205,44 @@
   - Added "Cancel" button enabled only while loading.
 - Increased fixture latency in `TaskClient.fixture` to `1s` to make in-flight cancellation visible in UI.
 
+### Specific considerations
+- `cancelInFlight: true` handles duplicate in-flight work for same-intent reloads; request-ID guards add protection against stale response ordering.
+- Cancellation updates state to `.idle` immediately while task teardown happens in the effect layer, keeping UI responsive to intent.
+- Actor-isolation note: `.run` work is non-isolated by default, while state mutation re-enters serialized store processing through `send`.
+
 ### Takeaway
 - Cancellation IDs control effect lifetime, while request IDs guard state against stale async responses.
 - `cancelInFlight: true` makes repeated user intent (reload) deterministic: newest request wins.
+- This is the first concrete example where concurrency behavior becomes explicit domain logic rather than incidental callback timing.
+
+## Stage 3 - Exercise A (Compose parent and child features)
+### Goal
+- Introduce explicit reducer composition so domain boundaries are visible in code: one parent feature (`AppFeature`) owns orchestration, while child features (`TasksFeature`, `SettingsFeature`) own their local state and actions.
+
+- Created `tca-elements/AppFeature.swift` with:
+  - parent `State` containing `tasksFeature` and `settingsFeature`
+  - parent `Action` namespacing child actions (`.tasksFeature(...)`, `.settingsFeature(...)`)
+  - `Scope` composition for both child reducers
+- Extracted async loading logic from `CounterFeature` into `tca-elements/TasksFeature.swift`:
+  - task state machine (`idle/loading/loaded/failed`)
+  - cancellation and stale-response handling
+  - `TaskClient` dependency usage unchanged
+- Added `tca-elements/SettingsFeature.swift` as a minimal second child:
+  - local settings state and toggle action
+  - intentionally small footprint for composition focus
+- Updated root wiring in `tca-elements/tca_elementsApp.swift`:
+  - app now owns `Store(initialState: AppFeature.State()) { AppFeature() }`
+- Updated `tca-elements/ContentView.swift`:
+  - accepts `StoreOf<AppFeature>`
+  - renders child sections using scoped stores
+
+### Specific considerations
+- The parent currently coordinates structure, not behavior. This keeps Stage 3A focused on composition mechanics before introducing parent-child communication rules.
+- Extracting `TasksFeature` preserves Stage 2 effect behavior while reducing cognitive load in `CounterFeature`; each reducer now has a clearer reason to change.
+- The `SettingsFeature` is intentionally simple to prove that scoped stores are not only for complex domains; they are a boundary tool even for small state.
+- We retained app-level dependency injection (`taskClient`) so child reducers consume dependencies without needing global singletons.
+
+### Takeaway
+- `Scope` is the key bridge between parent topology and child autonomy: parent owns placement, child owns behavior.
+- Namespaced child actions make data flow auditable and avoid accidental cross-feature mutation.
+- Composition does not require immediate abstraction of every shared rule; start with boundaries, then add coordination only when behavior demands it.

@@ -5,8 +5,8 @@ import ComposableArchitecture
 
 @main
 struct tca_elementsApp: App {
-    let store = Store(initialState: CounterFeature.State()) {
-        CounterFeature()
+    let store = Store(initialState: AppFeature.State()) {
+        AppFeature()
     } withDependencies: {
         $0.taskClient = .failFirstThenFixture
     }
