@@ -60,14 +60,20 @@ struct ContentView: View {
                 }
 
                 Section("Stage 2: Async tasks") {
-                    Button("Load tasks") {
-                        store.send(.loadTasksButtonTapped)
+                    HStack {
+                        Button("Load tasks") {
+                            store.send(.loadTasksButtonTapped)
+                        }
+
+                        Button("Cancel") {
+                            store.send(.cancelLoadTasksButtonTapped)
+                        }
+                        .disabled(!isLoadingTasks)
                     }
-                    .disabled(isLoadingTasks)
 
                     switch store.tasksPhase {
                     case .idle:
-                        Text("Idle. Tap load to run TaskClient.")
+                        Text("Idle. Tap load to run TaskClient (rapid taps cancel in-flight work).")
                             .foregroundStyle(.secondary)
 
                     case .loading:

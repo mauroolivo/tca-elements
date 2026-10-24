@@ -13,7 +13,7 @@ struct TaskClient {
 
 extension TaskClient {
     static let fixture = Self {
-        try await Task.sleep(for: .milliseconds(500))
+        try await Task.sleep(for: .seconds(1))
         return [
             TaskItem(id: 1, title: "Draft Stage 2 notes", isDone: false),
             TaskItem(id: 2, title: "Run reducer flow mentally", isDone: true),

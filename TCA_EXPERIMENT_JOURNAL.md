@@ -143,3 +143,20 @@
 
 ### Takeaway
 - Failure and retry work best when modeled as a single state machine (`idle/loading/loaded/failed`) rather than separate, potentially contradictory booleans.
+
+## Stage 2 - Exercise C (Cancellation and races)
+- Extended task-loading flow to support explicit cancellation:
+  - Added `cancelLoadTasksButtonTapped` action.
+  - Added `.cancellable(id:cancelInFlight:)` to the load effect.
+  - Added `.cancel(id:)` handling when cancel is tapped.
+- Added request identity tracking in reducer state:
+  - `latestTasksRequestID` increments per load trigger.
+  - `tasksResponse(requestID: ...)` ignores stale responses from older effects.
+- Updated `ContentView` Stage 2 UI:
+  - "Load tasks" remains available for rapid re-taps.
+  - Added "Cancel" button enabled only while loading.
+- Increased fixture latency in `TaskClient.fixture` to `1s` to make in-flight cancellation visible in UI.
+
+### Takeaway
+- Cancellation IDs control effect lifetime, while request IDs guard state against stale async responses.
+- `cancelInFlight: true` makes repeated user intent (reload) deterministic: newest request wins.
