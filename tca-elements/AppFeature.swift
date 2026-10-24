@@ -25,10 +25,7 @@ struct AppFeature {
         }
         Reduce { state, action in
             switch action {
-            case let .tasksFeature(.taskTapped(taskID)):
-                guard let task = state.tasksFeature.tasks.first(where: { $0.id == taskID }) else {
-                    return .none
-                }
+            case let .tasksFeature(.delegate(.taskSelected(task))):
                 state.taskDetailFeature = TaskDetailFeature.State(task: task)
                 return .none
 

@@ -98,7 +98,6 @@ struct TaskDetailSectionView: View {
     let onDismissTapped: () -> Void
 
     var body: some View {
-    var body: some View {
         Section("Optional detail feature (ifLet)") {
             Text("Selected: \(store.task.title)")
             Text("Heartbeat ticks: \(store.heartbeatCount)")
@@ -114,9 +113,6 @@ struct TaskDetailSectionView: View {
         }
         .onAppear {
             store.send(.startHeartbeat)
-        }
-        .onDisappear {
-            store.send(.stopHeartbeat)
         }
     }
 }

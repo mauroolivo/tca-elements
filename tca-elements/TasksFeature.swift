@@ -23,7 +23,12 @@ struct TasksFeature {
         case loadTasksButtonTapped
         case cancelLoadTasksButtonTapped
         case taskTapped(Int)
+        case delegate(Delegate)
         case tasksResponse(requestID: Int, Result<[TaskItem], TaskLoadError>)
+    }
+
+    enum Delegate {
+        case taskSelected(TaskItem)
     }
 
     private let loadTasksCancellationID = "loadTasks"
@@ -54,7 +59,13 @@ struct TasksFeature {
                 state.tasksPhase = .idle
                 return .cancel(id: loadTasksCancellationID)
 
-            case .taskTapped:
+            case let .taskTapped(taskID):
+                guard let selectedTask = state.tasks.first(where: { $0.id == taskID }) else {
+                    return .none
+                }
+                return .send(.delegate(.taskSelected(selectedTask)))
+
+            case .delegate:
                 return .none
 
             case let .tasksResponse(requestID, .success(tasks)):

@@ -284,3 +284,37 @@
 ### Takeaway
 - `ifLet` is more than conditional rendering: it is state-driven reducer composition with lifecycle-aware effect management.
 - Optional child state gives a precise answer to "does this feature exist right now?" and keeps parent/child ownership boundaries explicit.
+
+
+## Stage 3 - Exercise C (Delegation)
+
+### Goal
+- Let a child feature communicate user intent to its parent without importing parent concerns or forcing the parent to inspect child internals.
+- Compare intent delegation with shared state coupling and direct parent coordination.
+
+### Hands-on changes
+- Added an explicit delegate channel in `tca-elements/TasksFeature.swift`:
+  - `Action.delegate(Delegate)`
+  - `Delegate.taskSelected(TaskItem)`
+- Converted task row tap flow:
+  - child still receives `.taskTapped(id)` from the view
+  - child maps that local event to `.delegate(.taskSelected(task))`
+  - parent reacts to delegated intent in `tca-elements/AppFeature.swift`
+- Updated parent coordination in `tca-elements/AppFeature.swift`:
+  - replaced direct `case .tasksFeature(.taskTapped(...))` handling
+  - now handles `case .tasksFeature(.delegate(.taskSelected(task)))`
+  - parent creates `taskDetailFeature` from delegated payload
+
+### Key decisions
+- **Intent-first communication:** child emits what happened (`taskSelected`) instead of how parent should react.
+- **Parent stays coordinator:** parent decides navigation/presence by setting optional detail state.
+- **Avoid structural coupling:** parent no longer reaches into `tasksFeature.tasks` to reconstruct selection context.
+
+### Trade-offs
+- Delegation adds one extra action layer, but it makes ownership boundaries clearer as features scale.
+- Passing full `TaskItem` simplifies parent coordination; passing only `id` would keep payload smaller but requires parent lookup logic.
+
+### Takeaway
+- Delegate actions are a focused cross-boundary contract: child reports intent, parent decides orchestration.
+- This pattern scales better than shared mutable state when feature boundaries and responsibilities need to stay explicit.
+
