@@ -246,3 +246,41 @@
 - `Scope` is the key bridge between parent topology and child autonomy: parent owns placement, child owns behavior.
 - Namespaced child actions make data flow auditable and avoid accidental cross-feature mutation.
 - Composition does not require immediate abstraction of every shared rule; start with boundaries, then add coordination only when behavior demands it.
+
+## Stage 3 - Exercise B (Optional child with `ifLet`)
+
+### Goal
+- Model detail flow as optional state (`TaskDetailFeature.State?`) so the child reducer only exists when the parent says it exists.
+- Observe how child effects behave when optional state is removed.
+
+### Hands-on changes
+- Added a new optional child reducer in `tca-elements/TaskDetailFeature.swift`:
+  - state: selected `TaskItem` + `heartbeatCount`
+  - effect: long-running heartbeat loop started by `.startHeartbeat`
+- Extended `tca-elements/AppFeature.swift`:
+  - added `taskDetailFeature: TaskDetailFeature.State?`
+  - added child action routing and dismiss action
+  - composed child with `.ifLet(\.taskDetailFeature, action: \.taskDetailFeature)`
+  - mapped `TasksFeature.Action.taskTapped` to parent-owned detail creation
+- Extended `tca-elements/TasksFeature.swift` with `taskTapped(Int)` intent action.
+- Updated `tca-elements/ContentView.swift`:
+  - task rows now send `.taskTapped`
+  - optional detail section is rendered only when scoped optional store exists
+  - dismiss button sets child state back to `nil`
+
+### Key decisions
+- **Parent owns navigation/presence state:** task detail is represented in `AppFeature.State`, not inside `TasksFeature`.
+- **Child owns detail-local behavior:** heartbeat logic stays fully inside `TaskDetailFeature`.
+- **Intent over coupling:** tasks child emits `taskTapped` intent; parent decides what that means.
+
+### What we observed
+- Optional scoping in the view (`if let detailStore = store.scope(...)`) mirrors optional reducer composition in the parent.
+- When parent sets `taskDetailFeature = nil`, the optional child disappears and its in-flight effect is torn down by `ifLet` lifecycle behavior.
+
+### Caveats
+- The detail feature currently holds a snapshot of a selected `TaskItem`; edits are not synchronized back to the tasks list yet.
+- Heartbeat is intentionally synthetic for lifecycle visibility; real features should tie long-lived effects to actual product behavior.
+
+### Takeaway
+- `ifLet` is more than conditional rendering: it is state-driven reducer composition with lifecycle-aware effect management.
+- Optional child state gives a precise answer to "does this feature exist right now?" and keeps parent/child ownership boundaries explicit.

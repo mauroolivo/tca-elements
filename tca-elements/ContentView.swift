@@ -18,6 +18,19 @@ struct ContentView: View {
                     store: store.scope(state: \.tasksFeature, action: \.tasksFeature)
                 )
 
+                if let detailStore = store.scope(state: \.taskDetailFeature, action: \.taskDetailFeature) {
+                    TaskDetailSectionView(
+                        store: detailStore,
+                        onDismissTapped: { store.send(.dismissTaskDetailButtonTapped) }
+                    )
+                } else {
+                    Section("Optional detail feature (ifLet)") {
+                        Text("Tap a loaded task row to create child state.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 SettingsSectionView(
                     store: store.scope(state: \.settingsFeature, action: \.settingsFeature)
                 )
@@ -60,7 +73,11 @@ struct TasksSectionView: View {
 
             case .loaded:
                 ForEach(store.tasks) { task in
-                    Label(task.title, systemImage: task.isDone ? "checkmark.circle.fill" : "circle")
+                    Button {
+                        store.send(.taskTapped(task.id))
+                    } label: {
+                        Label(task.title, systemImage: task.isDone ? "checkmark.circle.fill" : "circle")
+                    }
                 }
 
             case let .failed(message):
@@ -72,6 +89,34 @@ struct TasksSectionView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+        }
+    }
+}
+
+struct TaskDetailSectionView: View {
+    let store: StoreOf<TaskDetailFeature>
+    let onDismissTapped: () -> Void
+
+    var body: some View {
+    var body: some View {
+        Section("Optional detail feature (ifLet)") {
+            Text("Selected: \(store.task.title)")
+            Text("Heartbeat ticks: \(store.heartbeatCount)")
+                .monospacedDigit()
+
+            Text("Close this section to set optional child state to nil. Its in-flight heartbeat effect is canceled by ifLet lifecycle management.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            Button("Dismiss detail") {
+                onDismissTapped()
+            }
+        }
+        .onAppear {
+            store.send(.startHeartbeat)
+        }
+        .onDisappear {
+            store.send(.stopHeartbeat)
         }
     }
 }

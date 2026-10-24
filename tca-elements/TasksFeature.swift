@@ -22,6 +22,7 @@ struct TasksFeature {
     enum Action {
         case loadTasksButtonTapped
         case cancelLoadTasksButtonTapped
+        case taskTapped(Int)
         case tasksResponse(requestID: Int, Result<[TaskItem], TaskLoadError>)
     }
 
@@ -52,6 +53,9 @@ struct TasksFeature {
             case .cancelLoadTasksButtonTapped:
                 state.tasksPhase = .idle
                 return .cancel(id: loadTasksCancellationID)
+
+            case .taskTapped:
+                return .none
 
             case let .tasksResponse(requestID, .success(tasks)):
                 guard requestID == state.latestTasksRequestID else {
