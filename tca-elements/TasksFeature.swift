@@ -7,9 +7,10 @@ struct TasksFeature {
 
     @ObservableState
     struct State: Equatable {
-        var tasks: [TaskItem] = []
+        var tasks: IdentifiedArrayOf<TaskRowFeature.State> = []
         var tasksPhase: TasksPhase = .idle
         var latestTasksRequestID = 0
+        var nextLocalTaskID = 1_000
     }
 
     enum TasksPhase: Equatable {
@@ -22,7 +23,8 @@ struct TasksFeature {
     enum Action {
         case loadTasksButtonTapped
         case cancelLoadTasksButtonTapped
-        case taskTapped(Int)
+        case addTaskButtonTapped
+        case taskRows(IdentifiedActionOf<TaskRowFeature>)
         case delegate(Delegate)
         case tasksResponse(requestID: Int, Result<[TaskItem], TaskLoadError>)
     }
@@ -59,11 +61,35 @@ struct TasksFeature {
                 state.tasksPhase = .idle
                 return .cancel(id: loadTasksCancellationID)
 
-            case let .taskTapped(taskID):
-                guard let selectedTask = state.tasks.first(where: { $0.id == taskID }) else {
-                    return .none
+            case .addTaskButtonTapped:
+                let task = TaskItem(
+                    id: state.nextLocalTaskID,
+                    title: "New task #\(state.nextLocalTaskID)",
+                    isDone: false
+                )
+                state.nextLocalTaskID += 1
+                state.tasks.append(TaskRowFeature.State(task: task))
+                state.tasksPhase = .loaded
+                return .cancel(id: loadTasksCancellationID)
+
+            case let .taskRows(.element(_, .delegate(.taskSelected(task)))):
+                return .send(.delegate(.taskSelected(task)))
+
+            case let .taskRows(.element(id, .deleteTapped)):
+                state.tasks.remove(id: id)
+                if state.tasks.isEmpty {
+                    state.tasksPhase = .idle
                 }
-                return .send(.delegate(.taskSelected(selectedTask)))
+                return .none
+
+            case .taskRows(.element):
+                if state.tasks.isEmpty {
+                    state.tasksPhase = .idle
+                }
+                return .none
+
+            case .taskRows:
+                return .none
 
             case .delegate:
                 return .none
@@ -72,7 +98,9 @@ struct TasksFeature {
                 guard requestID == state.latestTasksRequestID else {
                     return .none
                 }
-                state.tasks = tasks
+                for task in tasks {
+                    state.tasks[id: task.id] = TaskRowFeature.State(task: task)
+                }
                 state.tasksPhase = .loaded
                 return .none
 
@@ -84,6 +112,9 @@ struct TasksFeature {
                 state.tasksPhase = .failed(message)
                 return .none
             }
+        }
+        .forEach(\.tasks, action: \.taskRows) {
+            TaskRowFeature()
         }
     }
 }

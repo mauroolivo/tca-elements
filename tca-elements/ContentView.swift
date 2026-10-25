@@ -35,7 +35,7 @@ struct ContentView: View {
                     store: store.scope(state: \.settingsFeature, action: \.settingsFeature)
                 )
             }
-            .navigationTitle("Stage 3 Composition")
+            .navigationTitle("Stage 4 Collections")
         }
     }
 }
@@ -56,11 +56,19 @@ struct TasksSectionView: View {
                 Button("Load tasks") {
                     store.send(.loadTasksButtonTapped)
                 }
+                .buttonStyle(.bordered)
 
                 Button("Cancel") {
                     store.send(.cancelLoadTasksButtonTapped)
                 }
                 .disabled(!isLoadingTasks)
+                .buttonStyle(.bordered)
+
+                Button("Add") {
+                    store.send(.addTaskButtonTapped)
+                }
+                .disabled(isLoadingTasks)
+                .buttonStyle(.borderedProminent)
             }
 
             switch store.tasksPhase {
@@ -72,12 +80,8 @@ struct TasksSectionView: View {
                 ProgressView("Loading tasks...")
 
             case .loaded:
-                ForEach(store.tasks) { task in
-                    Button {
-                        store.send(.taskTapped(task.id))
-                    } label: {
-                        Label(task.title, systemImage: task.isDone ? "checkmark.circle.fill" : "circle")
-                    }
+                ForEach(store.scope(state: \.tasks, action: \.taskRows)) { rowStore in
+                    TaskRowView(store: rowStore)
                 }
 
             case let .failed(message):
@@ -89,6 +93,36 @@ struct TasksSectionView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+        }
+    }
+}
+
+struct TaskRowView: View {
+    let store: StoreOf<TaskRowFeature>
+
+    var body: some View {
+        HStack {
+            Button {
+                store.send(.rowTapped)
+            } label: {
+                Label(store.task.title, systemImage: store.task.isDone ? "checkmark.circle.fill" : "circle")
+            }
+
+            Spacer()
+
+            Button {
+                store.send(.toggleCompletionTapped)
+            } label: {
+                Image(systemName: store.task.isDone ? "checkmark.circle" : "circle")
+            }
+            .buttonStyle(.plain)
+
+            Button(role: .destructive) {
+                store.send(.deleteTapped)
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.plain)
         }
     }
 }

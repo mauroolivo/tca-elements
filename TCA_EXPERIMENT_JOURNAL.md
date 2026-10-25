@@ -318,3 +318,39 @@
 - Delegate actions are a focused cross-boundary contract: child reports intent, parent decides orchestration.
 - This pattern scales better than shared mutable state when feature boundaries and responsibilities need to stay explicit.
 
+
+## Stage 4 - Exercise A (Task collection)
+
+### Goal
+- Move from a plain array to identity-driven collection state so row actions can be routed safely and predictably.
+- Add, complete, and delete tasks while preserving stable IDs and explicit reducer ownership.
+
+### Hands-on changes
+- Added `tca-elements/TaskRowFeature.swift` as a focused row reducer:
+  - row state wraps a `TaskItem` and exposes `id`
+  - row actions: select, toggle completion, delete
+  - row delegate emits task-selection intent upward
+- Refactored `tca-elements/TasksFeature.swift`:
+  - `tasks` changed to `IdentifiedArrayOf<TaskRowFeature.State>`
+  - introduced `taskRows(IdentifiedActionOf<TaskRowFeature>)`
+  - added `addTaskButtonTapped`
+  - composed row reducer with `.forEach(\.tasks, action: \.taskRows)`
+  - routes row delegate selection to parent-level `delegate(.taskSelected)`
+  - handles row deletion by ID in the collection owner
+- Updated `tca-elements/ContentView.swift`:
+  - Tasks section now includes an `Add` button
+  - rows render from scoped row stores using `ForEach(store.scope(state: \.tasks, action: \.taskRows))`
+  - added `TaskRowView` with row tap, complete toggle, and delete actions
+
+### Key decisions
+- **Collection ownership stays in `TasksFeature`:** row reducers mutate local row state, but collection structural changes (remove by ID) happen in the parent collection reducer.
+- **Stable identity first:** `IdentifiedArrayOf` + `IdentifiedActionOf` make action routing explicit and resilient to ordering changes.
+- **Delegation remains selective:** only row selection delegates upward; not every row action becomes a parent concern.
+
+### Caveats
+- `TaskDetailFeature` still holds a snapshot of a selected task; completion/deletion while detail is visible is intentionally left for Stage 4C lifecycle edge-case exploration.
+
+### Takeaway
+- `IdentifiedArrayOf` and `.forEach` turn list behavior into explicit state/action topology.
+- Row actions become addressable by identity rather than index, reducing accidental coupling to collection order.
+
