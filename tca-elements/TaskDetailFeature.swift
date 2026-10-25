@@ -13,14 +13,22 @@ struct TaskDetailFeature {
 
         enum Action: BindableAction {
             case binding(BindingAction<State>)
+            case completionToggled(Bool)
             case saveButtonTapped
             case cancelButtonTapped
         }
 
         var body: some Reducer<State, Action> {
             BindingReducer()
-            Reduce { _, _ in
-                .none
+            Reduce { state, action in
+                switch action {
+                case let .completionToggled(isDone):
+                    state.draftIsDone = isDone
+                    return .none
+
+                case .binding, .saveButtonTapped, .cancelButtonTapped:
+                    return .none
+                }
             }
         }
     }

@@ -474,3 +474,28 @@
 ### Takeaway
 - Confirmation and errors are not incidental UI effects; they are part of feature behavior and belong in state/action modeling.
 
+## Stage 5 - Exercise C (Bindings and ownership)
+
+### Goal
+- Compare TCA binding support with explicit action-based updates and local native view state.
+- Keep mutation ownership explicit and avoid cross-feature uncontrolled two-way mutation.
+
+### Hands-on changes
+- Updated `tca-elements/TaskDetailFeature.swift` (`EditSheetFeature`):
+  - retained `BindingReducer` and `BindableAction` for text editing (`draftTitle`)
+  - added explicit action `completionToggled(Bool)` for completion state mutation path
+- Updated `tca-elements/ContentView.swift` (`TaskEditSheetView`):
+  - `TextField` still uses `$store.draftTitle` (TCA binding action flow)
+  - `Toggle("Completed")` now uses manual `Binding(get:set:)` sending `.completionToggled`
+  - added local `@State` toggle (`showBindingNotes`) to show purely view-local UI state that does not belong in reducer state
+
+### Comparison snapshot
+- **TCA binding support (`BindingReducer`)**: minimal boilerplate for form fields that map directly to feature state.
+- **Explicit actions**: clearer intent boundaries when each mutation should be semantically named.
+- **Native local state (`@State`)**: best for purely presentational concerns with no domain meaning.
+
+### Takeaway
+- Use binding reducers for ergonomic form editing inside feature boundaries.
+- Prefer explicit actions when a mutation represents domain intent.
+- Keep local UI-only toggles out of reducer state to avoid unnecessary domain churn.
+

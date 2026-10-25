@@ -159,13 +159,29 @@ struct TaskDetailView: View {
 
 struct TaskEditSheetView: View {
     @Bindable var store: StoreOf<TaskDetailFeature.EditSheetFeature>
+    @State private var showBindingNotes = false
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Draft") {
                     TextField("Title", text: $store.draftTitle)
-                    Toggle("Completed", isOn: $store.draftIsDone)
+                    Toggle(
+                        "Completed",
+                        isOn: Binding(
+                            get: { store.draftIsDone },
+                            set: { store.send(.completionToggled($0)) }
+                        )
+                    )
+                }
+
+                Section("Binding comparison") {
+                    Toggle("Show notes", isOn: $showBindingNotes)
+                    if showBindingNotes {
+                        Text("Title uses TCA binding actions; completion uses explicit action dispatch. This note toggle is local @State only.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .navigationTitle("Edit task")
@@ -187,6 +203,7 @@ struct TaskEditSheetView: View {
 
 struct SettingsSectionView: View {
     let store: StoreOf<SettingsFeature>
+
     var body: some View {
         Section("Settings feature") {
             Toggle(
