@@ -133,7 +133,12 @@ struct TaskDetailView: View {
                     .foregroundStyle(.secondary)
 
                 Button("Pop detail") {
+                    store.send(.stopHeartbeat)
                     dismiss()
+                }
+
+                Button("Delete task", role: .destructive) {
+                    store.send(.deleteButtonTapped)
                 }
             }
         }

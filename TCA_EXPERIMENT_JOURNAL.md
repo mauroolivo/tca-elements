@@ -384,3 +384,31 @@
 - `StackState` + `StackAction` makes navigation transitions part of domain state, so push/pop flows are inspectable and deterministic.
 - Parent remains coordinator while children keep local behavior boundaries.
 
+## Stage 4 - Exercise C (Lifecycle edge cases)
+
+### Goal
+- Validate navigation/lifecycle behavior when collection state changes under an active destination.
+- Make edge cases explicit: deleting a task while its detail is visible, and stopping in-flight detail work before popping.
+
+### Hands-on changes
+- Updated `tca-elements/TasksFeature.swift`:
+  - added delegate case `taskDeleted(TaskItem.ID)`
+  - on row delete, collection still removes by ID and now sends delegate intent upward
+- Updated `tca-elements/AppFeature.swift`:
+  - handles `.tasksFeature(.delegate(.taskDeleted(taskID)))`
+  - removes matching detail destinations from `detailPath`
+- Updated `tca-elements/ContentView.swift`:
+  - `TaskDetailView` pop button now sends `.stopHeartbeat` before `dismiss()`
+
+### What we observed
+- If the currently visible task is deleted from the list, parent path state now removes that detail destination, preventing stale detail screens.
+- Explicitly stopping heartbeat before pop makes the effect lifetime decision obvious in reducer flow (instead of relying solely on automatic teardown).
+
+### Caveats
+- Only programmatic pop button currently sends `.stopHeartbeat`; gesture/back-button pops still rely on stack lifecycle teardown.
+- Detail still holds a snapshot of task content; if row data changes elsewhere, the visible detail state may not automatically mirror those edits.
+
+### Takeaway
+- Collection and navigation state must be coordinated when identity can disappear mid-flow.
+- Stage 4C is less about new API and more about enforcing lifecycle invariants in reducer logic.
+

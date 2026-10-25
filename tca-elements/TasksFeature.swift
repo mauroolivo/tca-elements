@@ -31,6 +31,7 @@ struct TasksFeature {
 
     enum Delegate {
         case taskSelected(TaskItem)
+        case taskDeleted(TaskItem.ID)
     }
 
     private let loadTasksCancellationID = "loadTasks"
@@ -80,7 +81,7 @@ struct TasksFeature {
                 if state.tasks.isEmpty {
                     state.tasksPhase = .idle
                 }
-                return .none
+                return .send(.delegate(.taskDeleted(id)))
 
             case .taskRows(.element):
                 if state.tasks.isEmpty {

@@ -28,6 +28,18 @@ struct AppFeature {
                 state.detailPath.append(TaskDetailFeature.State(task: task))
                 return .none
 
+            case let .tasksFeature(.delegate(.taskDeleted(taskID))):
+                state.detailPath.removeAll { $0.task.id == taskID }
+                return .none
+
+            case let .detailPath(.element(id: _, action: .delegate(.taskDeleted(taskID)))):
+                state.tasksFeature.tasks.remove(id: taskID)
+                if state.tasksFeature.tasks.isEmpty {
+                    state.tasksFeature.tasksPhase = .idle
+                }
+                state.detailPath.removeAll { $0.task.id == taskID }
+                return .none
+
             case .tasksFeature, .settingsFeature, .detailPath:
                 return .none
             }

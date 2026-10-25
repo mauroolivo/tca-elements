@@ -14,6 +14,12 @@ struct TaskDetailFeature {
         case startHeartbeat
         case stopHeartbeat
         case heartbeatTick
+        case deleteButtonTapped
+        case delegate(Delegate)
+    }
+
+    enum Delegate {
+        case taskDeleted(TaskItem.ID)
     }
 
     private let heartbeatCancellationID = "taskDetail.heartbeat"
@@ -40,6 +46,12 @@ struct TaskDetailFeature {
 
             case .heartbeatTick:
                 state.heartbeatCount += 1
+                return .none
+
+            case .deleteButtonTapped:
+                return .send(.delegate(.taskDeleted(state.task.id)))
+
+            case .delegate:
                 return .none
             }
         }
