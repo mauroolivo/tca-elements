@@ -6,14 +6,13 @@ struct AppFeature {
     struct State: Equatable {
         var tasksFeature = TasksFeature.State()
         var settingsFeature = SettingsFeature.State()
-        var taskDetailFeature: TaskDetailFeature.State?
+        var detailPath = StackState<TaskDetailFeature.State>()
     }
 
     enum Action {
         case tasksFeature(TasksFeature.Action)
         case settingsFeature(SettingsFeature.Action)
-        case taskDetailFeature(TaskDetailFeature.Action)
-        case dismissTaskDetailButtonTapped
+        case detailPath(StackActionOf<TaskDetailFeature>)
     }
 
     var body: some Reducer<State, Action> {
@@ -26,18 +25,14 @@ struct AppFeature {
         Reduce { state, action in
             switch action {
             case let .tasksFeature(.delegate(.taskSelected(task))):
-                state.taskDetailFeature = TaskDetailFeature.State(task: task)
+                state.detailPath.append(TaskDetailFeature.State(task: task))
                 return .none
 
-            case .dismissTaskDetailButtonTapped:
-                state.taskDetailFeature = nil
-                return .none
-
-            case .tasksFeature, .settingsFeature, .taskDetailFeature:
+            case .tasksFeature, .settingsFeature, .detailPath:
                 return .none
             }
         }
-        .ifLet(\.taskDetailFeature, action: \.taskDetailFeature) {
+        .forEach(\.detailPath, action: \.detailPath) {
             TaskDetailFeature()
         }
     }

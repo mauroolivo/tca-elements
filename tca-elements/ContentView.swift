@@ -5,37 +5,26 @@ import SwiftUI
 import ComposableArchitecture
 
 struct ContentView: View {
-    let store: StoreOf<AppFeature>
+    @Bindable var store: StoreOf<AppFeature>
 
     var body: some View {
         content
     }
 
     private var content: some View {
-        NavigationStack {
+        NavigationStack(path: $store.scope(state: \.detailPath, action: \.detailPath)) {
             Form {
                 TasksSectionView(
                     store: store.scope(state: \.tasksFeature, action: \.tasksFeature)
                 )
 
-                if let detailStore = store.scope(state: \.taskDetailFeature, action: \.taskDetailFeature) {
-                    TaskDetailSectionView(
-                        store: detailStore,
-                        onDismissTapped: { store.send(.dismissTaskDetailButtonTapped) }
-                    )
-                } else {
-                    Section("Optional detail feature (ifLet)") {
-                        Text("Tap a loaded task row to create child state.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
                 SettingsSectionView(
                     store: store.scope(state: \.settingsFeature, action: \.settingsFeature)
                 )
             }
-            .navigationTitle("Stage 4 Collections")
+            .navigationTitle("Stage 4 Navigation")
+        } destination: { detailStore in
+            TaskDetailView(store: detailStore)
         }
     }
 }
@@ -127,24 +116,28 @@ struct TaskRowView: View {
     }
 }
 
-struct TaskDetailSectionView: View {
+struct TaskDetailView: View {
     let store: StoreOf<TaskDetailFeature>
-    let onDismissTapped: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        Section("Optional detail feature (ifLet)") {
-            Text("Selected: \(store.task.title)")
-            Text("Heartbeat ticks: \(store.heartbeatCount)")
-                .monospacedDigit()
+        Form {
+            Section("Task detail") {
+                Text("Selected: \(store.task.title)")
+                Text("Heartbeat ticks: \(store.heartbeatCount)")
+                    .monospacedDigit()
 
-            Text("Close this section to set optional child state to nil. Its in-flight heartbeat effect is canceled by ifLet lifecycle management.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                Text("Popping this screen removes detail state from the stack.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
 
-            Button("Dismiss detail") {
-                onDismissTapped()
+                Button("Pop detail") {
+                    dismiss()
+                }
             }
         }
+        .navigationTitle("Task detail")
         .onAppear {
             store.send(.startHeartbeat)
         }

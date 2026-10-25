@@ -354,3 +354,33 @@
 - `IdentifiedArrayOf` and `.forEach` turn list behavior into explicit state/action topology.
 - Row actions become addressable by identity rather than index, reducing accidental coupling to collection order.
 
+## Stage 4 - Exercise B (Stack navigation)
+
+### Goal
+- Move detail presentation from optional inline state to explicit stack navigation state.
+- Push task detail from domain actions, then pop back without duplicating navigation truth in view-local state.
+
+### Hands-on changes
+- Updated `tca-elements/AppFeature.swift`:
+  - replaced `taskDetailFeature: TaskDetailFeature.State?` with `detailPath = StackState<TaskDetailFeature.State>()`
+  - replaced optional-child action with `detailPath(StackActionOf<TaskDetailFeature>)`
+  - on `tasksFeature.delegate(.taskSelected(task))`, appends `TaskDetailFeature.State(task:)` to path
+  - replaced `.ifLet` composition with `.forEach(\.detailPath, action: \.detailPath) { TaskDetailFeature() }`
+- Updated `tca-elements/ContentView.swift`:
+  - migrated root container to `NavigationStack(path: $store.scope(state: \.detailPath, action: \.detailPath))`
+  - replaced inline optional detail section with `destination` rendering of `TaskDetailView`
+  - `TaskDetailView` starts heartbeat on appear and exposes a pop button via `dismiss()`
+
+### Key decisions
+- **Single navigation source of truth:** path lives in reducer state, not in local `@State` or ad-hoc booleans.
+- **State-driven push:** row selection delegates intent; parent maps it to path append.
+- **Feature reuse:** detail reducer remains the same domain, now hosted as stack destination state.
+
+### Trade-offs
+- Stack navigation is more explicit and testable than implicit view routing, but adds ceremony and action/state types.
+- `dismiss()` is convenient in SwiftUI destination views; path mutation still remains reducer-observable via scoped stack binding.
+
+### Takeaway
+- `StackState` + `StackAction` makes navigation transitions part of domain state, so push/pop flows are inspectable and deterministic.
+- Parent remains coordinator while children keep local behavior boundaries.
+
