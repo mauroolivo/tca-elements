@@ -40,6 +40,10 @@ struct AppFeature {
                 state.detailPath.removeAll { $0.task.id == taskID }
                 return .none
 
+            case let .detailPath(.element(id: _, action: .delegate(.taskUpdated(task)))):
+                state.tasksFeature.tasks[id: task.id]?.task = task
+                return .none
+
             case .tasksFeature, .settingsFeature, .detailPath:
                 return .none
             }

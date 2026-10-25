@@ -117,7 +117,7 @@ struct TaskRowView: View {
 }
 
 struct TaskDetailView: View {
-    let store: StoreOf<TaskDetailFeature>
+    @Bindable var store: StoreOf<TaskDetailFeature>
 
     @Environment(\.dismiss) private var dismiss
 
@@ -137,6 +137,10 @@ struct TaskDetailView: View {
                     dismiss()
                 }
 
+                Button("Edit task") {
+                    store.send(.editButtonTapped)
+                }
+
                 Button("Delete task", role: .destructive) {
                     store.send(.deleteButtonTapped)
                 }
@@ -145,6 +149,37 @@ struct TaskDetailView: View {
         .navigationTitle("Task detail")
         .onAppear {
             store.send(.startHeartbeat)
+        }
+        .sheet(item: $store.scope(state: \.editSheet, action: \.editSheet)) { store in
+            TaskEditSheetView(store: store)
+        }
+    }
+}
+
+struct TaskEditSheetView: View {
+    @Bindable var store: StoreOf<TaskDetailFeature.EditSheetFeature>
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Draft") {
+                    TextField("Title", text: $store.draftTitle)
+                    Toggle("Completed", isOn: $store.draftIsDone)
+                }
+            }
+            .navigationTitle("Edit task")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Discard") {
+                        store.send(.cancelButtonTapped)
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        store.send(.saveButtonTapped)
+                    }
+                }
+            }
         }
     }
 }

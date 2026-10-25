@@ -412,3 +412,37 @@
 - Collection and navigation state must be coordinated when identity can disappear mid-flow.
 - Stage 4C is less about new API and more about enforcing lifecycle invariants in reducer logic.
 
+## Stage 5 - Exercise A (Sheet + draft commit/discard)
+
+### Goal
+- Model edit-task presentation as explicit transient state using `@Presents` and `PresentationAction`.
+- Separate draft edits from committed task state, then choose save (commit) vs discard (dismiss).
+
+### Hands-on changes
+- Updated `tca-elements/TaskDetailFeature.swift`:
+  - added nested `EditSheetFeature` with `BindingReducer`
+  - added `@Presents var editSheet: EditSheetFeature.State?`
+  - added actions: `editButtonTapped`, `editSheet(PresentationAction<...>)`
+  - `editButtonTapped` seeds draft fields from current task
+  - `saveButtonTapped` commits draft into `state.task`, dismisses sheet, and delegates `.taskUpdated`
+  - `cancelButtonTapped` dismisses sheet without committing
+  - composed sheet reducer with `.ifLet(\.$editSheet, action: \.editSheet)`
+- Updated `tca-elements/ContentView.swift`:
+  - `TaskDetailView` now has an `Edit task` button
+  - added sheet presentation via `.sheet(item: $store.scope(state: \.editSheet, action: \.editSheet))`
+  - added `TaskEditSheetView` form for title/completed draft editing with Save/Discard toolbar actions
+- Updated `tca-elements/AppFeature.swift`:
+  - handles detail delegate `.taskUpdated(task)` to sync list row state with committed edits
+
+### Key decisions
+- **Primitive draft fields** (`draftTitle`, `draftIsDone`) were used instead of binding through full `TaskItem` to avoid isolated-conformance issues under the project actor-isolation settings.
+- **Commit happens in detail domain first**, then parent synchronization updates list row projection.
+- **Discard is state-only dismissal**: no accidental mutation leaks into canonical task state.
+
+### Caveats
+- Gesture-driven sheet dismissal currently behaves like cancel (no commit), which is acceptable for this exercise but should be explicitly tested in Stage 6.
+
+### Takeaway
+- `@Presents` cleanly models transient presentation lifecycle in reducer state.
+- Draft state provides controlled edit semantics: mutate locally, commit intentionally, or dismiss safely.
+

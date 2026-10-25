@@ -3,23 +3,49 @@ import ComposableArchitecture
 
 @Reducer
 struct TaskDetailFeature {
+    @Reducer
+    struct EditSheetFeature {
+        @ObservableState
+        struct State: Equatable {
+            var draftTitle: String
+            var draftIsDone: Bool
+        }
+
+        enum Action: BindableAction {
+            case binding(BindingAction<State>)
+            case saveButtonTapped
+            case cancelButtonTapped
+        }
+
+        var body: some Reducer<State, Action> {
+            BindingReducer()
+            Reduce { _, _ in
+                .none
+            }
+        }
+    }
+
     @ObservableState
     struct State: Equatable {
         var task: TaskItem
         var heartbeatCount = 0
         var isHeartbeatRunning = false
+        @Presents var editSheet: EditSheetFeature.State?
     }
 
     enum Action {
         case startHeartbeat
         case stopHeartbeat
         case heartbeatTick
+        case editButtonTapped
+        case editSheet(PresentationAction<EditSheetFeature.Action>)
         case deleteButtonTapped
         case delegate(Delegate)
     }
 
     enum Delegate {
         case taskDeleted(TaskItem.ID)
+        case taskUpdated(TaskItem)
     }
 
     private let heartbeatCancellationID = "taskDetail.heartbeat"
@@ -48,12 +74,38 @@ struct TaskDetailFeature {
                 state.heartbeatCount += 1
                 return .none
 
+            case .editButtonTapped:
+                state.editSheet = EditSheetFeature.State(
+                    draftTitle: state.task.title,
+                    draftIsDone: state.task.isDone
+                )
+                return .none
+
+            case .editSheet(.presented(.saveButtonTapped)):
+                guard let draft = state.editSheet else {
+                    return .none
+                }
+                state.task.title = draft.draftTitle
+                state.task.isDone = draft.draftIsDone
+                state.editSheet = nil
+                return .send(.delegate(.taskUpdated(state.task)))
+
+            case .editSheet(.presented(.cancelButtonTapped)):
+                state.editSheet = nil
+                return .none
+
+            case .editSheet:
+                return .none
+
             case .deleteButtonTapped:
                 return .send(.delegate(.taskDeleted(state.task.id)))
 
             case .delegate:
                 return .none
             }
+        }
+        .ifLet(\.$editSheet, action: \.editSheet) {
+            EditSheetFeature()
         }
     }
 }
