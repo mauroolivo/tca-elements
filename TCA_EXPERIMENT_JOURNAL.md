@@ -446,3 +446,31 @@
 - `@Presents` cleanly models transient presentation lifecycle in reducer state.
 - Draft state provides controlled edit semantics: mutate locally, commit intentionally, or dismiss safely.
 
+## Stage 5 - Exercise B (Alerts and confirmation)
+
+### Goal
+- Model destructive confirmation and user-facing validation errors as reducer state.
+- Keep alert presentation and button intents explicit in domain actions.
+
+### Hands-on changes
+- Updated `tca-elements/TaskDetailFeature.swift`:
+  - added `@Presents var alert: AlertState<Action.Alert>?`
+  - added `Action.alert(PresentationAction<Alert>)`
+  - added nested `Action.Alert` cases:
+    - `confirmDeleteTapped`
+    - `validationErrorOkTapped`
+  - `deleteButtonTapped` now sets alert state for destructive confirmation instead of deleting immediately
+  - `alert(.presented(.confirmDeleteTapped))` delegates actual deletion
+  - save validation now checks empty/whitespace titles and raises an error alert
+  - composed alert reducer with `.ifLet(\.$alert, action: \.alert)`
+- Updated `tca-elements/ContentView.swift`:
+  - `TaskDetailView` now presents reducer-driven alerts via `.alert($store.scope(state: \.alert, action: \.alert))`
+
+### Key decisions
+- **Alerts are state:** the UI does not decide alert existence; reducer does.
+- **Buttons are actions:** destructive and acknowledgement button taps are explicit domain events.
+- **Validation remains deterministic:** invalid save does not mutate canonical task state.
+
+### Takeaway
+- Confirmation and errors are not incidental UI effects; they are part of feature behavior and belong in state/action modeling.
+

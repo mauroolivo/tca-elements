@@ -153,6 +153,7 @@ struct TaskDetailView: View {
         .sheet(item: $store.scope(state: \.editSheet, action: \.editSheet)) { store in
             TaskEditSheetView(store: store)
         }
+        .alert($store.scope(state: \.alert, action: \.alert))
     }
 }
 
@@ -186,7 +187,6 @@ struct TaskEditSheetView: View {
 
 struct SettingsSectionView: View {
     let store: StoreOf<SettingsFeature>
-
     var body: some View {
         Section("Settings feature") {
             Toggle(
