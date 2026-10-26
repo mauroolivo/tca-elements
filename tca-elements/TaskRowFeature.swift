@@ -11,14 +11,14 @@ struct TaskRowFeature {
         }
     }
 
-    enum Action {
+    enum Action: Equatable {
         case rowTapped
         case toggleCompletionTapped
         case deleteTapped
         case delegate(Delegate)
     }
 
-    enum Delegate {
+    enum Delegate: Equatable {
         case taskSelected(TaskItem)
     }
 

@@ -499,3 +499,32 @@
 - Prefer explicit actions when a mutation represents domain intent.
 - Keep local UI-only toggles out of reducer state to avoid unnecessary domain churn.
 
+## Stage 6 - Exercise A (Reducer tests with TestStore)
+
+### Goal
+- Make synchronous reducer behavior concrete with executable assertions, especially around collection updates and parent coordination.
+- Demonstrate that TCA tests assert state transitions and action flow, not SwiftUI rendering.
+
+### Hands-on changes
+- Added a new unit test target and source directory:
+  - `tca-elementsTests/Stage6AReducerTests.swift`
+- Added four reducer-focused tests using `TestStore`:
+  - `testCounterSynchronousFlow`
+  - `testTasksAddAndToggleCollectionState`
+  - `testTasksDeleteRoutesDelegateAndTransitionsToIdleWhenEmpty`
+  - `testAppFeatureSelectionPushesDetailPath`
+- Coverage emphasis for this exercise:
+  - direct action -> state mutation assertions
+  - collection identity updates (`IdentifiedArrayOf`) through row actions
+  - delegate emission after delete
+  - parent coordination of navigation path append
+
+### Specific considerations
+- The delete test intentionally asserts both structural state mutation and follow-up delegate action receipt; this captures a common mistake where teams verify only one side of the flow.
+- Stage 6A stays synchronous on purpose; async effect/cancellation assertions are deferred to Stage 6B for tighter mental separation.
+- Tests are reducer-domain assertions; they do not prove view layout, button wiring, or animation behavior.
+
+### Takeaway
+- `TestStore` turns architecture claims into verifiable contracts: given an action, we can assert exact state deltas and emitted follow-up actions.
+- Collection behavior becomes safer when tested by identity (`id`) instead of index assumptions.
+- Parent-child coordination can be validated without rendering a single SwiftUI view, which keeps failures localized and actionable.

@@ -20,7 +20,7 @@ struct TasksFeature {
         case failed(String)
     }
 
-    enum Action {
+    enum Action: Equatable {
         case loadTasksButtonTapped
         case cancelLoadTasksButtonTapped
         case addTaskButtonTapped
@@ -29,7 +29,7 @@ struct TasksFeature {
         case tasksResponse(requestID: Int, Result<[TaskItem], TaskLoadError>)
     }
 
-    enum Delegate {
+    enum Delegate: Equatable {
         case taskSelected(TaskItem)
         case taskDeleted(TaskItem.ID)
     }
