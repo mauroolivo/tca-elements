@@ -528,3 +528,68 @@
 - `TestStore` turns architecture claims into verifiable contracts: given an action, we can assert exact state deltas and emitted follow-up actions.
 - Collection behavior becomes safer when tested by identity (`id`) instead of index assumptions.
 - Parent-child coordination can be validated without rendering a single SwiftUI view, which keeps failures localized and actionable.
+
+## Stage 6 - Exercise B (Effect tests)
+
+### Goal
+- Verify async reducer behavior deterministically: success, failure/retry, cancellation, and stale-response protection.
+- Assert effect-driven action flow in `TasksFeature` without involving SwiftUI rendering.
+
+### Hands-on changes
+- Added effect-focused `TestStore` coverage in `tca-elementsTests/Stage6BEffectTests.swift`:
+  - `testLoadTasksSuccessFlow`
+  - `testLoadTasksFailureThenRetrySuccess`
+  - `testCancelLoadTasksCancelsInFlightEffect`
+  - `testStaleTasksResponseIsIgnored`
+- Dependency overrides used in tests:
+  - direct `taskClient.loadTasks` success fixture
+  - fail-first then success behavior using an actor-backed attempt counter
+  - long-running load (`Task.sleep`) to assert cancellation path
+- State/action assertions emphasize:
+  - `latestTasksRequestID` increments
+  - `tasksPhase` transitions (`idle -> loading -> loaded/failed`)
+  - stale `tasksResponse(requestID:)` is ignored when request ID is old
+
+### Specific considerations
+- Cancellation is asserted through resulting state and `store.finish()`, which ensures no unexpected trailing effects are emitted.
+- The stale-response test encodes a key race invariant: only the latest in-flight request may mutate tasks state.
+- Error assertions stay user-facing (`.failed("Expected test failure")`) rather than binding tests to low-level thrown error types.
+
+### Verification
+- Ran:
+  - `xcodebuild test -project tca-elements.xcodeproj -scheme tca-elements -destination 'platform=iOS Simulator,name=iPhone 18 Pro,OS=27.0' -only-testing:tca-elementsTests/Stage6BEffectTests`
+- Result: `** TEST SUCCEEDED **` (all 4 Stage 6B tests passed).
+
+### Takeaway
+- Effect tests make concurrency behavior explicit, repeatable, and safe to refactor.
+- Request IDs + cancellation IDs are not implementation noise; they are testable domain invariants.
+
+## Stage 6 - Exercise C (Regression tests)
+
+### Goal
+- Capture lifecycle and synchronization regressions between task list state and stack-based detail navigation state.
+- Lock in behavior for delete/update flows crossing feature boundaries.
+
+### Hands-on changes
+- Added regression suite in `tca-elementsTests/Stage6CRegressionTests.swift`:
+  - `testDeletingTaskFromListAlsoRemovesMatchingDetail`
+  - `testDeletingTaskFromDetailAlsoRemovesListRowAndResetsIdleWhenEmpty`
+  - `testUpdatingTaskFromDetailKeepsListInSync`
+- Updated parent coordination in `tca-elements/AppFeature.swift` for list-originated deletes:
+  - on `.tasksFeature(.delegate(.taskDeleted(taskID)))`, parent now removes the row from `tasksFeature.tasks`, sets `tasksPhase = .idle` when the list becomes empty, and removes matching detail destinations from `detailPath`.
+- Aligned test expectation with reducer invariant:
+  - when last task is deleted, expected `tasksPhase` is `.idle` (not `.loaded`).
+
+### Specific considerations
+- `detailPath` is `StackState<TaskDetailFeature.State>`, so clearing assertions use `StackState()`.
+- Stage 6C focuses on cross-feature invariants rather than isolated child behavior.
+- The update-flow test intentionally asserts list synchronization while the pushed detail state remains a snapshot, documenting current ownership boundaries.
+
+### Verification
+- Ran:
+  - `xcodebuild test -project tca-elements.xcodeproj -scheme tca-elements -destination 'platform=iOS Simulator,name=iPhone 18 Pro,OS=27.0' -only-testing:tca-elementsTests/Stage6CRegressionTests`
+- Result: `** TEST SUCCEEDED **` (all 3 Stage 6C tests passed).
+
+### Takeaway
+- Regression tests encode feature-boundary contracts that are easy to break during refactors.
+- Keeping list and navigation state synchronized on deletion avoids stale destination state and UI drift.

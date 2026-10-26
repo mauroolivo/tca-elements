@@ -29,6 +29,10 @@ struct AppFeature {
                 return .none
 
             case let .tasksFeature(.delegate(.taskDeleted(taskID))):
+                state.tasksFeature.tasks.remove(id: taskID)
+                if state.tasksFeature.tasks.isEmpty {
+                    state.tasksFeature.tasksPhase = .idle
+                }
                 state.detailPath.removeAll { $0.task.id == taskID }
                 return .none
 
