@@ -1,15 +1,9 @@
 import Foundation
 import ComposableArchitecture
+import TasksKit
 
-struct TaskItem: Equatable, Identifiable, Sendable {
-    let id: Int
-    var title: String
-    var isDone: Bool
-}
-
-struct TaskClient {
-    var loadTasks: @Sendable () async throws -> [TaskItem]
-}
+typealias TaskItem = TasksKit.TaskItem
+typealias TaskClient = TasksKit.TaskClient
 
 extension TaskClient {
     static let fixture = Self {
@@ -41,19 +35,6 @@ extension TaskClient {
             return try await fixture.loadTasks()
         }
     }()
-}
-
-extension DependencyValues {
-    var taskClient: TaskClient {
-        get { self[TaskClient.self] }
-        set { self[TaskClient.self] = newValue }
-    }
-}
-
-extension TaskClient: DependencyKey {
-    static let liveValue = TaskClient.fixture
-    static let testValue = TaskClient.fixture
-    static let previewValue = TaskClient.fixture
 }
 
 private struct TodoDTO: Decodable {

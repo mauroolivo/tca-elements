@@ -593,3 +593,75 @@
 ### Takeaway
 - Regression tests encode feature-boundary contracts that are easy to break during refactors.
 - Keeping list and navigation state synchronized on deletion avoids stale destination state and UI drift.
+
+## Stage 7 - Exercise A (Modular boundaries)
+
+### Goal
+- Evaluate whether extracting feature code into local Swift packages improves architecture clarity, dependency direction, and test/build scope for this project state.
+- Identify the smallest useful extraction without introducing micro-modules.
+
+### Current project state
+- Project remains single-target app + tests (`tca-elements`, `tca-elementsTests`).
+- Resolved TCA version remains `1.26.2`.
+- No local Swift package manifest currently exists in workspace (no `Package.swift`).
+
+### Prediction question
+- If we extract task-domain code first, what breaks earliest: navigation coordination, model ownership, or dependency registration?
+
+### Hands-on changes (analysis pass)
+- Audited boundaries across:
+  - `tca-elements/AppFeature.swift`
+  - `tca-elements/TasksFeature.swift`
+  - `tca-elements/TaskRowFeature.swift`
+  - `tca-elements/TaskDetailFeature.swift`
+  - `tca-elements/TaskClient.swift`
+  - `tca-elements/SettingsFeature.swift`
+  - Stage 6 test files
+- Identified coupling and ownership:
+  - parent orchestration and cross-feature synchronization live in `AppFeature`
+  - task model and client dependency key are currently colocated in `TaskClient.swift`
+  - `SettingsFeature` is already isolated
+- Chosen minimal extraction candidate for next step:
+  - package scope tentatively named `TasksKit`
+  - include `TasksFeature`, `TaskRowFeature`, and task-domain model/dependency interfaces
+  - keep app-specific client implementations and parent coordination in app target
+
+### Hands-on changes (implementation pass)
+- Created local Swift package at `Packages/TasksKit`:
+  - `Packages/TasksKit/Package.swift`
+  - `Packages/TasksKit/Sources/TasksKit/TaskItem.swift`
+  - `Packages/TasksKit/Sources/TasksKit/TaskClient.swift`
+  - `Packages/TasksKit/Sources/TasksKit/TaskRowFeature.swift`
+  - `Packages/TasksKit/Sources/TasksKit/TasksFeature.swift`
+- Added local package linkage in `tca-elements.xcodeproj/project.pbxproj`:
+  - `XCLocalSwiftPackageReference` for `Packages/TasksKit`
+  - app target `packageProductDependencies` includes `TasksKit`
+  - app Frameworks phase now links `TasksKit`
+- Converted app feature files to package bridges:
+  - `tca-elements/TasksFeature.swift` -> `typealias TasksFeature = TasksKit.TasksFeature`
+  - `tca-elements/TaskRowFeature.swift` -> `typealias TaskRowFeature = TasksKit.TaskRowFeature`
+  - `tca-elements/TaskClient.swift` now bridges `TaskItem`/`TaskClient` via typealias and keeps only concrete app implementations (`fixture`, `live`, `failFirstThenFixture`)
+- Added explicit `import TasksKit` where required under member-import visibility checks:
+  - app: `AppFeature.swift`, `ContentView.swift`, `TaskDetailFeature.swift`, `CounterFeature.swift`, `tca_elementsApp.swift`
+  - tests: `Stage6AReducerTests.swift`, `Stage6BEffectTests.swift`, `Stage6CRegressionTests.swift`
+
+### Why this result occurs (State -> Action -> Reducer -> Effect)
+- Parent (`AppFeature`) currently enforces multi-feature invariants (list/detail sync on delete/update), so moving it too early would spread orchestration across package boundaries.
+- Child task reducers are already mostly self-contained and communicate via delegate actions, making them better first extraction candidates.
+- Dependency injection already passes through `DependencyValues`, so package boundaries can remain explicit if interfaces are extracted without concrete runtime wiring.
+
+### Alternative native SwiftUI approach
+- Keep everything app-local and rely on folders + conventions until either:
+  - compile times become problematic, or
+  - ownership boundaries become repeatedly violated.
+- This remains simpler short-term, but does not enforce import-level architectural direction.
+
+### Journal decision and takeaway
+- Decision: perform a **small, feature-first extraction** (tasks domain only) rather than splitting every feature into separate modules.
+- Main risk to control: avoid circular ownership between `TaskItem`, reducer code, and concrete `TaskClient` implementations.
+- Evidence-based boundary rule: extract reducers + model interfaces first, keep app orchestration and live wiring local until a later step proves additional modularization value.
+
+### Verification
+- Ran:
+  - `xcodebuild test -project tca-elements.xcodeproj -scheme tca-elements -destination 'platform=iOS Simulator,name=iPhone 18 Pro,OS=27.0' -only-testing:tca-elementsTests/Stage6BEffectTests -only-testing:tca-elementsTests/Stage6CRegressionTests`
+- Result: `** TEST SUCCEEDED **` (7 tests passed across Stage 6B + Stage 6C).
