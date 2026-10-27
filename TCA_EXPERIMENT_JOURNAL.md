@@ -3,8 +3,8 @@
 ## Course Setup
 - Date: 2026-10-22
 - Project: `tca-elements`
-- Stage: 2
-- Exercise: Async effect + custom dependency key
+- Stage: 7
+- Exercise: C (Audit)
 
 ## Environment Snapshot
 - Xcode: 27.1 (Build 27A9269)
@@ -711,3 +711,63 @@
 - Native Observation is a strong fit for small, local features where minimal ceremony is preferred.
 - TCA remains stronger once explicit cancellation contracts, cross-feature coordination, and deterministic testing become first-order requirements.
 - This stage confirms a decision framework: choose architecture per feature pressure, not ideology.
+
+
+## Stage 7 - Exercise C (Architecture audit)
+
+### Goal
+- Audit the current codebase for architectural pressure points: duplicated state, action granularity, reducer responsibilities, effect lifetime hygiene, and module boundary quality.
+- Produce concrete adoption criteria and targeted next-step research areas without expanding scope into a second curriculum.
+
+### Audit findings (current state)
+- **State duplication / synchronization pressure**
+  - `TaskDetailFeature.State.task` is still a snapshot copy of list row data (`TasksFeature.tasks[id].task`).
+  - Sync is currently maintained by delegate updates (`taskUpdated`) and delete cleanup, which is explicit but still dual-writes task fields across boundaries.
+- **Action shape and breadth**
+  - `AppFeature.Action` remains readable, but delete/update coordination now enters from multiple channels (`tasksFeature.delegate` and `detailPath.element.delegate`).
+  - This is valid but signals emerging coordination complexity where helper reducers/utilities may improve maintainability.
+- **Reducer size / responsibility**
+  - `AppFeature` is still coordinator-focused (good), but now owns several invariants (path sync, list cleanup, empty-phase transitions).
+  - `TaskDetailFeature` has grown beyond pure detail display (heartbeat, edit sheet, alerts, validation, delegation), and is the first reducer approaching multi-concern pressure.
+- **Effect lifetime hygiene**
+  - Task loading and heartbeat use explicit cancellation IDs and request IDs; Stage 6 tests confirm race/cancel invariants.
+  - Previous `ifLet` warning validated a key rule: child actions must not be sent after optional child teardown.
+- **Feature boundaries and modularization**
+  - Stage 7A extraction to `TasksKit` is successful: task-domain reducers/models are package-owned, app orchestrator remains local.
+  - Boundary direction is improved (app imports package), while concrete app dependency wiring intentionally remains local.
+- **Shared state and navigation truth**
+  - Navigation truth is explicit in `StackState` (`detailPath`) and no longer duplicated in local view state.
+  - List/detail content is still not a single canonical task source; current snapshot model is acceptable for the lab but should be revisited for production-grade editing flows.
+- **Performance assumptions**
+  - No measured performance claims were introduced; conclusions remain evidence-based on behavior/testability, not micro-benchmarks.
+
+### Specific considerations and trade-offs
+- Snapshot detail state keeps stack navigation ergonomic and testable, but incurs synchronization bookkeeping.
+- Delegate channels kept parent-child coupling intentional; however, overuse can create action fan-out if every event is promoted upward.
+- Native comparison implementation showed lower ceremony but required manual race/cancellation safeguards that TCA codifies structurally.
+
+### Migration / interoperability notes
+- UIKit/MVVM interoperability path is viable by embedding scoped stores at feature boundaries while keeping existing coordinators/view models.
+- A practical migration strategy is vertical-slice adoption (one flow at a time), not global rewrite.
+
+### Additional research justified (not in this lab)
+- TCA shared-state and persistence-oriented APIs for reducing list/detail dual-write pressure.
+- Long-living feature state persistence strategy (drafts, navigation restoration, and task storage policy).
+- Quantitative build/test scope impact after package extraction (before additional module splits).
+
+### Adoption criteria takeaway
+- **Small/local feature:** prefer native Observation unless effect cancellation/testing/coordination pressure appears.
+- **Medium cross-feature flow:** TCA is valuable once explicit action tracing, navigation invariants, and deterministic tests become requirements.
+- **Large multi-team domain:** TCA + modular boundaries provide strong ownership contracts and safer refactoring leverage.
+
+### Stage completion note
+- Stage 7C completed as an audit pass with no additional runtime code changes.
+- Current app/test state remains aligned with Stage 6/7 assertions and behaviors.
+
+
+## Stage 7 - Final artifacts
+
+- Created `TCA_CHEATSHEET.md` with version-accurate syntax and mental-model quick references.
+- Created `TCA_TESTING_GUIDE.md` with `TestStore` patterns, effect/cancellation testing, and command examples.
+- Created `TCA_VS_NATIVE_SWIFTUI.md` with evidence-based comparison and adoption criteria.
+- Final course takeaway remains: architecture per feature pressure, not ideology.
