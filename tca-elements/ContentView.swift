@@ -7,6 +7,7 @@ import TasksKit
 
 struct ContentView: View {
     @Bindable var store: StoreOf<AppFeature>
+    @State private var showNativeComparison = false
 
     var body: some View {
         content
@@ -23,9 +24,19 @@ struct ContentView: View {
                     store: store.scope(state: \.settingsFeature, action: \.settingsFeature)
                 )
             }
-            .navigationTitle("Stage 4 Navigation")
+            .navigationTitle("Stage 7 Comparison")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Native Lab") {
+                        showNativeComparison = true
+                    }
+                }
+            }
         } destination: { detailStore in
             TaskDetailView(store: detailStore)
+        }
+        .sheet(isPresented: $showNativeComparison) {
+            NativeTasksComparisonView(client: .fixture)
         }
     }
 }

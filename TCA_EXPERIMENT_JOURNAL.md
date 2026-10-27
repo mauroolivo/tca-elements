@@ -665,3 +665,49 @@
 - Ran:
   - `xcodebuild test -project tca-elements.xcodeproj -scheme tca-elements -destination 'platform=iOS Simulator,name=iPhone 18 Pro,OS=27.0' -only-testing:tca-elementsTests/Stage6BEffectTests -only-testing:tca-elementsTests/Stage6CRegressionTests`
 - Result: `** TEST SUCCEEDED **` (7 tests passed across Stage 6B + Stage 6C).
+
+## Stage 7 - Exercise B (Side-by-side comparison)
+
+### Goal
+- Implement one small feature using native SwiftUI Observation (`@Observable`, `@State`) with explicit async dependency injection.
+- Compare that feature against the existing TCA implementation with concrete evidence instead of blanket claims.
+
+### Hands-on changes
+- Updated `tca-elements/ContentView.swift`:
+  - added a `Native Lab` toolbar entry point.
+  - added `.sheet(isPresented:)` to present `NativeTasksComparisonView`.
+  - added `NativeTasksComparisonView` controls for load/cancel/add/toggle/delete.
+- Added `NativeTasksModel` (`@MainActor`, `@Observable`) in `tca-elements/ContentView.swift`:
+  - dependency injection via initializer (`init(client: TaskClient)`).
+  - manual async lifecycle via `Task` handle (`inFlightLoadTask`) and `cancelLoad()`.
+  - stale-response guard using `latestRequestID`.
+  - explicit phase transitions (`idle/loading/loaded/failed`).
+
+### Specific considerations
+- Native implementation is concise for this small surface area, but lifecycle correctness is hand-authored (task management + request guards).
+- Presentation for this comparison is local (`@State`) and intentionally not represented in reducer state, which improves local simplicity but reduces global action traceability.
+- We reused the same `TaskClient.fixture` data source so behavior comparison is about architecture style, not backend differences.
+
+### Evidence comparison snapshot
+- **State ownership**
+  - TCA: state and presentation are explicit reducer data.
+  - Native: model state + local view state are combined in one view/model pair.
+- **Effect cancellation and races**
+  - TCA: `.cancellable(id:)` + `.cancel(id:)` with reducer-enforced flow.
+  - Native: `Task` handle cancellation and manual request-ID checks.
+- **Testing ergonomics**
+  - TCA: Stage 6 suites already assert reducer/effect flow deterministically.
+  - Native: equivalent deterministic coverage would require custom async model tests and manual sequencing assertions.
+- **Composition/navigation**
+  - TCA: parent/child boundaries and delegate actions are explicit contracts.
+  - Native: fewer types and less ceremony, but coordination relies more on team discipline and conventions.
+
+### Verification
+- Ran:
+  - `xcodebuild -project tca-elements.xcodeproj -scheme tca-elements -destination 'generic/platform=iOS Simulator' -skipMacroValidation build -quiet; echo BUILD_STATUS:$?`
+- Result: `BUILD_STATUS:0`.
+
+### Takeaway
+- Native Observation is a strong fit for small, local features where minimal ceremony is preferred.
+- TCA remains stronger once explicit cancellation contracts, cross-feature coordination, and deterministic testing become first-order requirements.
+- This stage confirms a decision framework: choose architecture per feature pressure, not ideology.
